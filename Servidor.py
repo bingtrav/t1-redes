@@ -1,110 +1,142 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
- 
-# Programa Servidor
-# Fuente original de este codigo: www.pythondiario.com
-# Utilizado para fines academicos en el curso CI-1320 
 
 import socket
 import sys
- 
-# Creando el socket TCP/IP
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+def checkSeq(window,seqNumber):
+	resultado = False	
+	for i in window:
+		if i == int(seqNumber):
+			resultado = True
+			break
+	return resultado
+
+def updateSeq(window,windowSize,recvFlags):
+	for i in range(0,len(window)):
+		if window[i] != windowSize*2-1:
+			window[i] += 1
+		else:
+			window[i] -= windowSize*2-1
+	recvFlags[window[len(window)-1]] = False
+	print window
+
+def initWindow(window,recvCharacter,windowSize):
+	for i in range(0,windowSize):
+		window.append(i)
+		recvCharacter.append("")
+
+def recvData(connection):
+	data = connection.recv(3)
+	if modo == "d":
+		print >>sys.stderr, 'recibido "%s"' % data
+	return data
+
+
+def writeData(output,completeData):
+	output.write(completeData)
+
+def storeCharacter(recvCharacter,seqRecv,dataRecv,window):
+	index = window.index(int(seqRecv))
+	recvCharacter[index] = dataRecv
+
+def sumCounter(recvCounter,windowSize):
+	if recvCounter < windowSize-1:
+		recvCounter += 1
+	else:
+		recvCounter = 1
+	return recvCounter
+
+def concatCharacter(completeData,recvCounter,recvCharacter,output):
+	for i in range(0,recvCounter+1):
+		completeData += recvCharacter[i]
+		#output.write(recvCharacter[i])
+		recvCharacter[i] = ""
+
+def initRecvFlags(recvFlags,windowSize):
+	for i in range(0,windowSize*2):
+		recvFlags.append(False)
+	
 
 if len(sys.argv) > 3:
+
+	# Creando el socket TCP/IP
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 	#Asignación de argumentos.
 	puertoEscucha = int(sys.argv[1]) #Puerto indicado por el Usuario, en el cual va a escuchar el Servidor.
 	windowSize = int(sys.argv[2]) #Tamaño de la ventana del Servidor.
 	modo = sys.argv[3] #El modo en que desea ejecutar al Servidor.
-	#SECUENCIA TEMPORAL	
-	ventana = []
-	for i in range(0,windowSize):
-		ventana.append(i)
-
-	recibidos = []
-	secuencia = []
-	for i in range(0,8):
-		secuencia.append(i)
-		recibidos.append(False)
+		
+	window = [] #Ventana con los respectivos números de secuencia.
+	recvCharacter = [] #Vector con los caracteres recibidos, para luego copiarlos en orden.
+	initWindow(window,recvCharacter,windowSize) #Inicializa la ventana y el vector de caracteres.
+	recvCounter = 0 #Contador de caracteres recibidos, aceptados por la ventana, pero con los que no se puede mover la ventana aún.
+	recvFlags = []
+	initRecvFlags(recvFlags,windowSize)
 
 	# Enlace de socket y puerto
 	server_address = ('localhost', puertoEscucha)
 	if modo == "d":
-		print >>sys.stderr, 'Empezando a levantar %s puerto %s' % server_address
+		print 'Levantando el puerto %s %s' % server_address
 	sock.bind(server_address)
 
 	# Escuchando conexiones entrantes
 	sock.listen(1)
 	
 	#Archivo donde se va a escribir los "paquetes" que le llegan.
-	archivoSalida = open("Salida.txt","w")	
+	output = open("Salida.txt","w")
+
+	#Hilera que va a contener el mensaje de todos los paquetes para luego escribirlo en el archivo de salida.
+	completeData = ""	
 
 	while True:
 		# Esperando conexion
 		if modo == "d":
-			print >>sys.stderr, 'Esperando para conectarse'
+			print 'Esperando para conectarse'
 		connection, client_address = sock.accept()
+
+		if modo == "d":
+			print 'Conectado a ', client_address
 	 
 		try:
-			if modo == "d":
-				print >>sys.stderr, 'concexion desde', client_address
-	 
-		    # Recibe los datos en trozos y reetransmite
 			while True:
-				data = connection.recv(1000)
-				if modo == "d":
-					print >>sys.stderr, 'recibido "%s"' % data
+				data = recvData(connection)
 				if data:
-					seqRecv = data.split(":")[0]
-					dataRecv = data.split(":")[1]
-					#REVISA EL NUMERO DE SECUENCIA RECIBIDO EN LA VENTANA					
-					resultado = False	
-					for i in ventana:
-						if i == int(seqRecv):
-							resultado = True
-							break
-					if resultado:
+					seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
+					dataRecv = data.split(":")[1] #Obtiene el caracter					
+					if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
+						recvFlags[int(seqRecv)] = True
 						if modo == "d":
-							print >>sys.stderr, "enviando ACK"+ seqRecv +" de vuelta al cliente"
-						connection.sendall(seqRecv+":ACK")
-						#Escribe mensaje recibido en el archivo "Salida.txt"
-						archivoSalida.write(dataRecv)
-						recibidos[int(seqRecv)] = True
-						if recibidos[0]:
-							if(max(ventana) != 7):
-								for i in range(0,len(ventana)):
-									ventana[i] += 1
-							else:
-								if recibidos[len(recibidos)]:
-									for i in range(0,windowSize):
-										ventana[i] = i
-										recibidos[i] = False	
+							print "Enviando ACK"+ seqRecv +" de vuelta al cliente"
+						connection.sendall(seqRecv+":ACK") #Envía el ACK correspondiente al paquete recibido.
+						if window[0] == int(seqRecv): #En caso de recibir el primer elemento de la ventana, esta se mueve.
+							completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
+							#output.write(dataRecv)
+							concatCharacter(completeData,recvCounter,recvCharacter,output) #Concatena en orden el resto de caracteres guardados.
+							index = int(seqRecv)
+							while True:	
+								if recvFlags[index]:			
+									updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
+									index += 1
+								else:
+									break
+							recvCounter = 0 #Restablece el conteo de caracteres recibidos sin que se pudiera mover la ventana.
+						else:
+							storeCharacter(recvCharacter,seqRecv,dataRecv,window) #Guarda el caracter recibido en el orden correspondiente.
+							recvCounter = sumCounter(recvCounter,windowSize) #Aumenta la cantidad de caracteres recibidos.
+					else:
+						if modo == "d":
+							print "%s descartado, número de secuencia inválido" %data
 				else:
 					if modo == "d":
-						print >>sys.stderr, 'no hay mas datos', client_address
+						print 'no hay mas datos', client_address
 					break
 		         
 		finally:
 		    # Cerrando conexion
 			connection.close()
+			break
+	output.write(completeData)
 else:
 	print "Debe indicar el puerto de escucha del servidor, el tamaño de la ventana y el modo de ejecución (n o d).\nEj: python Servidor.py 10000 3 n"
-
-def checkSeq(number):
-	resultado = False	
-	for i in ventana:
-		if i == number:
-			resultado = True
-			break
-	return resultado
-
-def updateSeq():
-	if(max(ventana) < 19):
-		for i in ventana:
-			ventana[i] += 1
-	else:
-		for i in range(0,windowSize):
-			ventana[i] = i
-			recibidos[i] = False
-
