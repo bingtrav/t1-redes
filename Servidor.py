@@ -115,7 +115,7 @@ if len(sys.argv) > 3:
 							concatCharacter(completeData,recvCounter,recvCharacter,output) #Concatena en orden el resto de caracteres guardados.
 							index = int(seqRecv)
 							while True:	
-								if recvFlags[index]:			
+								if index < len(recvFlags) and recvFlags[index]:			
 									updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
 									index += 1
 								else:
@@ -131,7 +131,6 @@ if len(sys.argv) > 3:
 					if modo == "d":
 						print 'no hay mas datos', client_address
 					break
-		         
 		finally:
 		    # Cerrando conexion
 			connection.close()
