@@ -7,24 +7,36 @@
 
 import socket
 import sys
+import os.path
 
 # Variables "Globales"
-windowSR = 3
-file_Name = 'datos.txt'
-intermediate_port = 10000
-mode = 'normal'
-time_out = 3
-sec_Packet = 0
+windowSR = 3		# Tamaño de la ventana de Selective Repeat
+iDs = 0;			# Cantidad necesaria de IDs unicos
+file_Name = 'datos.txt'		# Nombre del archivo a enviar
+intermediate_port = 10000	# Puerto de conexión con el intermediario
+mode = 'normal'		# Modo de ejecución
+time_out = 3		# Tiempo del time-out
+sec_Packet = 0		# Secuencia del paquete
+vecId = []			# Vector de IDs de los paquetes enviados
+vecWindow = []		# Vector de los paquetes enviados
+vecTimer = []		# Vector del timer de cada paquete (unico)
  
 # Creando un socket TCP/IP
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Solicitud del tamaño de la ventana de paso de Selective Repeat
 windowSR = input("Tamaño deseado de la ventana de paso: ")
+iDs = windowSR * 2
 
 # Solicitud y carga de archivo a enviar
-file_Name = raw_input("Archivo a ser enviado: ")
-file_Open = open(file_Name, 'r')
+is_File = False
+while not is_File:
+	file_Name = raw_input("Ingrese archivo a ser enviado: ")
+	is_File = os.path.isfile(file_Name)
+	if is_File:
+		file_Open = open(file_Name, 'r')
+	else :
+		print "Archivo no encontrado"
 
 # Solicitar al usuario cual será el puerto de conexión con el intermediario
 intermediate_port = input("Puerto de conexión con el intermediario: ")
@@ -43,6 +55,7 @@ print >>sys.stderr, 'Tiempo del Time-Out configurado a %i ms' % time_out
 
 # Enviar datos del cliente hacia el servidor
 line = file_Open.readline()
+act_Id = 0
 while line != "":
 	# enviar caracter por caracter.
 	leng = len(line)
@@ -51,11 +64,22 @@ while line != "":
 		packet = (sec_Packet, line[i])
 		if mode == "debug":
 			if line[i] == " ":
+				vecWindow.append(packet)
+				vecTimer.append(time_out)
+				vecId.append(act_Id)
+				act_Id += 1
 				print "[debug] #%s:_%s" % packet
+				print "[debug] esperando en ventana el paquete: #%s:_%s"  % vecWindow[-1]
 			else:
 				if ord(line[i]) != 10:
-					print "[debug] #%s:%s" % packet
-
+					vecWindow.append(packet)
+					vecTimer.append(time_out)
+					vecId.append(act_Id)
+					act_Id += 1
+					print "[debug] %s:%s" % packet
+					print "[debug] esperando en ventana el paquete: #%s:%s" % vecWindow[-1]
+		if act_Id == iDs
+			act_Id = 0
 	line = file_Open.readline()
 print "Archivo enviado."
 file_Open.close()
@@ -65,25 +89,72 @@ file_Open.close()
 ####################################################
  
 # Conecta el socket en el puerto cuando el servidor esté escuchando
-server_address = ('localhost', intermediate_port)
+server_address = ('Servidor', intermediate_port)
 print >>sys.stderr, 'conectando a %s puerto %s' % server_address
 sock.connect(server_address)
 
+
+# Enviar datos del cliente hacia el servidor
+line = file_Open.readline()
+act_Id = 0
+leng = len(line)
 try:
 
-    # Enviando datos
-    message = 'Este es el mensaje.  Se repitio.'
-    print >>sys.stderr, 'enviando "%s"' % message
-    sock.sendall(message)
+	# Llena la ventana inicial
+	for i in xrange(windowSR):
+		packet = "".join(act_Id)
+		packet.join(":")
+		packet.join(line[i])
+		
+		vecWindow.append(packet)
+		vecTimer.append(time_out)
+		vecId.append(act_Id)			
+		act_Id += 1
+		leng -= 1
+
+		if mode == "debug":
+			print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+
+		sock.sendall(vecWindow[-1])
+
  
-    # Buscando respuesta
-    amount_received = 0
-    amount_expected = len(message)
+ 	# Inicia el envio de paquetes cuando se mueva la ventana
+    finish = False
      
-    while amount_received < amount_expected:
-        data = sock.recv(19)
-        amount_received += len(data)
-        print >>sys.stderr, '[debug] ACK %s recibido' % data
+    while not finish:
+        data = sock.recv(5)
+        ack = data.split(':')[0]
+        ack_Id = int(ack)
+
+        vecId[ack_Id] = -1
+
+        while (vecId[0] == -1) and (leng not 0):
+        	vecWindow.pop()
+        	vecTimer.pop()
+        	vecId.pop()
+
+        	act_Ch = len(line) - leng
+
+			packet = "".join(act_Id)
+			packet.join(":")
+			packet.join(line[act_Ch])
+
+        	vecWindow.append(packet)
+        	vecTimer(time_out)
+        	vecId(act_Id)
+        	
+
+        print >>sys.stderr, '[debug] ACK %s recibido' % ack
+
+        if leng == 0:
+        	line = file_Open.readline()
+        	leng = len(line)
+
+        if act_Id == iDs:
+        	act_Id = 0
+
+        if line == "":
+        	finish = True
  
 finally:
     print >>sys.stderr, 'Conexion finalizada'
