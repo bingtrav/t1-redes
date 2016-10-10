@@ -112,7 +112,7 @@ try:
 		act_Id += 1
 		leng -= 1
 
-		if mode == "debug" || mode == "d":
+		if mode == "debug" or mode == "d":
 			print "[debug] enviando el paquete: #%s" % vecWindow[-1]
 
 		sock.sendall(vecWindow[-1])
@@ -126,11 +126,13 @@ try:
 		ack = data.split(':')[0]
 		ack_Id = int(ack)
 
-		vecId[ack_Id] = -1
-		neutral = vecId[ack_Id]
+		if mode == "debug" or mode == "d":
+			print >>sys.stderr, '[debug] ACK %s recibido' % ack
+
+		pos = ack_Id in vecId
+		vecId[pos] = -1
 
 		while vecId[0] == -1 and 0 < leng:
-			print "entra %s" % vecId[0]
 			vecWindow.pop(0)
 			vecTimer.pop(0)
 			vecId.pop(0)
@@ -147,15 +149,12 @@ try:
 			act_Id += 1
 			leng -= 1
 
-			if mode == "debug" || mode == "d":
+			if mode == "debug" or mode == "d":
 				print "[debug] enviando el paquete: #%s" % vecWindow[-1]
 
 			for x in xrange(len(vecId)):
 				nu = (x,vecWindow[x])
 				print "%s:%s" % nu
-
-		if mode == "debug" || mode == "d":
-			print >>sys.stderr, '[debug] ACK %s recibido' % ack
 
 		if leng == 0:
 			line = file_Open.readline()
