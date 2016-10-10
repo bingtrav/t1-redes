@@ -19,7 +19,6 @@ def updateSeq(window,windowSize,recvFlags):
 		else:
 			window[i] -= windowSize*2-1
 	recvFlags[window[len(window)-1]] = False
-	print window
 
 def initWindow(window,recvCharacter,windowSize):
 	for i in range(0,windowSize):
