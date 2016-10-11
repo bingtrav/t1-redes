@@ -20,10 +20,9 @@ def updateSeq(window,windowSize,recvFlags):
 			window[i] -= windowSize*2-1
 	recvFlags[window[len(window)-1]] = False
 
-def initWindow(window,recvCharacter,windowSize):
+def initWindow(window,windowSize):
 	for i in range(0,windowSize):
 		window.append(i)
-		recvCharacter.append("")
 
 def recvData(connection):
 	data = connection.recv(3)
@@ -32,30 +31,34 @@ def recvData(connection):
 	return data
 
 
-def writeData(output,completeData):
-	output.write(completeData)
+def concatCharacter(completeData,recvCharacter):
+	indexToClean = []
+	for i in range(0,len(recvCharacter)):
+		seqStored = recvCharacter[i].split(":")[0] #Obtiene el número de secuencia.
+		dataStored = recvCharacter[i].split(":")[1] #Obtiene el caracter
+		if not checkSeq(window,int(seqStored)):
+			completeData += dataStored
+			indexToClean.append(i)
+	cleanList(recvCharacter,indexToClean)
+	return completeData
 
-def storeCharacter(recvCharacter,seqRecv,dataRecv,window):
-	index = window.index(int(seqRecv))
-	recvCharacter[index] = dataRecv
-
-def sumCounter(recvCounter,windowSize):
-	if recvCounter < windowSize-1:
-		recvCounter += 1
-	else:
-		recvCounter = 1
-	return recvCounter
-
-def concatCharacter(completeData,recvCounter,recvCharacter,output):
-	for i in range(0,recvCounter+1):
-		completeData += recvCharacter[i]
-		#output.write(recvCharacter[i])
-		recvCharacter[i] = ""
+def cleanList(recvCharacter,indexToClean):
+	for index in sorted(indexToClean, reverse=True):
+		del recvCharacter[index]
+	
 
 def initRecvFlags(recvFlags,windowSize):
 	for i in range(0,windowSize*2):
 		recvFlags.append(False)
-	
+
+def moveWindow(index,recvFlags,window,windowSize):
+	while True:	
+		if index < len(recvFlags) and recvFlags[index]:			
+			updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
+			index += 1
+		else:
+			break
+
 
 if len(sys.argv) > 3:
 
@@ -69,10 +72,9 @@ if len(sys.argv) > 3:
 		
 	window = [] #Ventana con los respectivos números de secuencia.
 	recvCharacter = [] #Vector con los caracteres recibidos, para luego copiarlos en orden.
-	initWindow(window,recvCharacter,windowSize) #Inicializa la ventana y el vector de caracteres.
-	recvCounter = 0 #Contador de caracteres recibidos, aceptados por la ventana, pero con los que no se puede mover la ventana aún.
-	recvFlags = []
-	initRecvFlags(recvFlags,windowSize)
+	initWindow(window,windowSize) #Inicializa la ventana.
+	recvFlags = [] #Vector de banderas que indican cuales números de secuencia se han recibido.
+	initRecvFlags(recvFlags,windowSize) #Inicializa el vector de banderas.
 
 	# Enlace de socket y puerto
 	server_address = ('localhost', puertoEscucha)
@@ -105,36 +107,31 @@ if len(sys.argv) > 3:
 					seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
 					dataRecv = data.split(":")[1] #Obtiene el caracter					
 					if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
-						recvFlags[int(seqRecv)] = True
+						recvFlags[int(seqRecv)] = True #Indica el número de secuencia que fue aceptado.
 						if modo == "d":
 							print "Enviando ACK"+ seqRecv +" de vuelta al cliente"
 						connection.sendall(seqRecv+":ACK") #Envía el ACK correspondiente al paquete recibido.
 						if window[0] == int(seqRecv): #En caso de recibir el primer elemento de la ventana, esta se mueve.
+							moveWindow(int(seqRecv),recvFlags,window,windowSize) #Mueve la ventana todo lo que pueda.
 							completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
-							#output.write(dataRecv)
-							concatCharacter(completeData,recvCounter,recvCharacter,output) #Concatena en orden el resto de caracteres guardados.
-							index = int(seqRecv)
-							while True:	
-								if index < len(recvFlags) and recvFlags[index]:			
-									updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
-									index += 1
-								else:
-									break
-							recvCounter = 0 #Restablece el conteo de caracteres recibidos sin que se pudiera mover la ventana.
+							completeData = concatCharacter(completeData,recvCharacter) #Concatena en orden el resto de caracteres guardados.
 						else:
-							storeCharacter(recvCharacter,seqRecv,dataRecv,window) #Guarda el caracter recibido en el orden correspondiente.
-							recvCounter = sumCounter(recvCounter,windowSize) #Aumenta la cantidad de caracteres recibidos.
+							recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
 					else:
-						if modo == "d":
-							print "%s descartado, número de secuencia inválido" %data
+						if recvFlags[int(seqRecv)]:
+							if modo == "d":
+								print "Reenviando ACK"+ seqRecv +" de vuelta al cliente"
+							connection.sendall(seqRecv+":ACK") #Reenvía el ACK correspondiente al paquete recibido, que ya había sido aceptado.
+						else:
+							if modo == "d":
+								print "%s descartado, número de secuencia inválido" %data
 				else:
 					if modo == "d":
 						print 'no hay mas datos', client_address
 					break
 		finally:
-		    # Cerrando conexion
-			connection.close()
+			connection.close() #Cierra la conexion.
 			break
-	output.write(completeData)
+	output.write(completeData) #Escribe en el archivo de salida todo el mensaje.
 else:
 	print "Debe indicar el puerto de escucha del servidor, el tamaño de la ventana y el modo de ejecución (n o d).\nEj: python Servidor.py 10000 3 n"
