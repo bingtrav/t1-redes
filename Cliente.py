@@ -149,6 +149,9 @@ try:
 			act_Id += 1
 			leng -= 1
 
+			if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
+				act_Id = 0
+
 			if mode == "debug" or mode == "d":
 				print "[debug] enviando el paquete: #%s" % vecWindow[-1]
 			
@@ -162,8 +165,6 @@ try:
 			line = file_Open.readline()
 			leng = len(line)
 
-		if act_Id == iDs:
-			act_Id = 0
 
 		if line == "":
 			finish = True
