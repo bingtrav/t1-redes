@@ -4,6 +4,7 @@
 import socket
 import sys
 
+#Revisa que el numero de secuencia se encuntra dentro de los que está aceptando la ventana.
 def checkSeq(window,seqNumber):
 	resultado = False	
 	for i in window:
