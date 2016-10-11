@@ -26,7 +26,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Solicitud del tamaño de la ventana de paso de Selective Repeat
 windowSR = input("Tamaño deseado de la ventana de paso: ")
-iDs = windowSR * 2
+iDs = windowSR * 2 - 1 #AGREGUÉ EL -1 PORQUE LOS ID VAN DE 0 a TAMAÑO VENTANA -1
 
 # Solicitud y carga de archivo a enviar
 is_File = False
