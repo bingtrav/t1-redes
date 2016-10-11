@@ -151,6 +151,8 @@ try:
 
 			if mode == "debug" or mode == "d":
 				print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+			
+			sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
 
 			for x in xrange(len(vecId)):
 				nu = (x,vecWindow[x])
