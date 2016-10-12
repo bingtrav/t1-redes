@@ -8,6 +8,7 @@
 import socket
 import sys
 import os.path
+import time
 
 # Variables "Globales"
 windowSR = 3		# Tamaño de la ventana de Selective Repeat
@@ -43,11 +44,20 @@ intermediate_port = input("Puerto de conexión con el intermediario: ")
 
 # Invita al usuario a seleccionar el modo que desee
 mode = raw_input("Ingrese el modo a ejecutar \n normal o debug: ")
+if mode == "normal" or mode == "n":
+	mode = "normal"
+else:
+	if mode == "debug" or mode == "d":
+		mode = "debug"
+	else:
+		print >>sys.stderr, 'Modo auto-asignado'
+		mode = "normal"
 print >>sys.stderr, 'Modo seleccionado: %s' % mode
 
 # Pide el tiempo de time-out en ms
 time_out = input("Cuanto tiempo desea el Time-Out del ACK: ")
 print >>sys.stderr, 'Tiempo del Time-Out configurado a %i ms' % time_out
+time_out = time_out * 0.1
 
 ####################################################
 #		ELIMINAR
@@ -107,15 +117,17 @@ try:
 		packet += line[i]
 		
 		vecWindow.append(packet)
-		vecTimer.append(time_out)
 		vecId.append(act_Id)			
 		act_Id += 1
 		leng -= 1
 
-		if mode == "debug" or mode == "d":
+		if mode == "debug":
 			print "[debug] enviando el paquete: #%s" % vecWindow[-1]
 
 		sock.sendall(vecWindow[-1])
+		t_a = time.time()
+		t = t_a + time_out
+		vecTimer.append(t)
 
  
  	# Inicia el envio de paquetes cuando se mueva la ventana
@@ -126,11 +138,12 @@ try:
 		ack = data.split(':')[0]
 		ack_Id = int(ack)
 
-		if mode == "debug" or mode == "d":
-			print >>sys.stderr, '[debug] ACK %s recibido' % ack
+		if mode == "debug":
+			print >>sys.stderr, '[debug] ACK %s recibido' % ack_Id
 
-		pos = ack_Id in vecId
-		vecId[pos] = -1
+		if ack_Id in vecId:
+			pos = vecId.index(ack_Id)
+			vecId[pos] = -1
 
 		while vecId[0] == -1 and 0 < leng:
 			vecWindow.pop(0)
@@ -144,7 +157,7 @@ try:
 			packet += line[act_Ch]
 
 			vecWindow.append(packet)
-			vecTimer.append(time_out)
+			vecTimer.append(t)
 			vecId.append(act_Id)
 			act_Id += 1
 			leng -= 1
@@ -152,21 +165,37 @@ try:
 			if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
 				act_Id = 0
 
-			if mode == "debug" or mode == "d":
+			if mode == "debug":
 				print "[debug] enviando el paquete: #%s" % vecWindow[-1]
 			
 			sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
+			t_a = time.time()
+			t = t_a + time_out			
+			vecTimer.append(t)
 
-			for x in xrange(len(vecId)):
-				nu = (x,vecWindow[x])
-				print "%s:%s" % nu
+			if mode == "debug":
+				ventana = "ventana: |"
+				for i in xrange(len(vecWindow)):
+					ventana += vecWindow[i]
+					ventana += "|"
+				print "[debug] %s" % ventana
+
+		t_a = time.time()
+		for act in xrange(len(vecWindow)):
+			if t_a <= vecTimer[act]:
+				if mode == "debug":
+					print "[debug] Reenviando el paquete: #%s" % vecWindow[act]
+				sock.sendall(vecWindow[act])
+				t_a = time.time()
+				t = t_a + time_out
+				vecTimer.append(t)
+				break
 
 		if leng == 0:
 			line = file_Open.readline()
 			leng = len(line)
 
-
-		if line == "":
+		if line == "" and not vecWindow:
 			finish = True
 
 finally:

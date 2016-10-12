@@ -43,8 +43,9 @@ def listenAndSend(threadID,threadName):
 						packetCounter += 1
 						try:
 							if (len(desireToDelete) > 0) and (packetCounter in desireToDelete):
-								if mode == "d":
-									print "Paquete \"perdido\""
+								#if mode == "d":
+								#	print "Paquete \"perdido\""
+								print "Paquete \"perdido\""
 							else:
 								if np.random.choice(np.arange(0,2), p=[prob,1-prob]):
 									print 'Enviando mensaje al servidor'
