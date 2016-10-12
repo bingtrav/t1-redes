@@ -29,16 +29,19 @@ def listenAndSend(threadID,threadName):
 	if threadID == 1: #Hilo encargado de escuchar al cliente y enviar al servidor.
 		while True:
 			# Esperando conexion
-			print 'Esperando para conectarse'
+			if mode == "d":
+				print 'Esperando para conectarse'
 			connection, client_address = sockListenClient.accept()
 		 
 			try:
-				print 'Conexion desde', client_address
+				if mode == "d":
+					print 'Conexion desde', client_address
 		 
 				# Recibe los datos en trozos y reetransmite
 				while True:
 					data = connection.recv(3)
-					print 'Recibido "%s"' % data
+					if mode == "d":
+						print 'Recibido "%s"' % data
 					if data:
 						packetCounter += 1
 						try:
@@ -48,7 +51,8 @@ def listenAndSend(threadID,threadName):
 								print "Paquete \"perdido\""
 							else:
 								if np.random.choice(np.arange(0,2), p=[prob,1-prob]):
-									print 'Enviando mensaje al servidor'
+									if mode == "d":
+										print 'Enviando mensaje al servidor'
 									sockSendServer.sendall(data)
 								else:
 									if mode == "d":
@@ -56,8 +60,9 @@ def listenAndSend(threadID,threadName):
 						finally:
 							pass
 					else:
-						print 'No hay mas datos', client_address
-						print 'Cerrando socket que envía al servidor'
+						if mode == "d":
+							print 'No hay mas datos', client_address
+							print 'Cerrando socket que envía al servidor'
 						sockSendServer.close()
 						serverSocketClosed = True
 						break
@@ -72,8 +77,9 @@ def listenAndSend(threadID,threadName):
 			while True:
 				try:
 					serverResponse = sockSendServer.recv(5)
-					print 'Recibiendo "%s"' % serverResponse
-					print 'Enviando mensaje de vuelta al cliente'
+					if mode == "d":
+						print 'Recibiendo "%s"' % serverResponse
+						print 'Enviando mensaje de vuelta al cliente'
 					connection.sendall(serverResponse)
 				finally:
 					break
@@ -100,12 +106,14 @@ if len(sys.argv) > 4:
 
 	# Enlace de socket y puerto
 	intermediario_address = ('localhost', clientAddress)
-	print 'Empezando a levantar %s puerto %s' % intermediario_address
+	if mode == "d":
+		print 'Empezando a levantar %s puerto %s' % intermediario_address
 	sockListenClient.bind(intermediario_address)
 
 	# Conecta el socket en el puerto cuando el servidor esté escuchando
 	server_address = ('localhost', serverAddress)
-	print 'Conectando a %s puerto %s' % server_address
+	if mode == "d":
+		print 'Conectando a %s puerto %s' % server_address
 	sockSendServer.connect(server_address)
 
 	# Escuchando conexiones entrantes
