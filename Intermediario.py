@@ -13,20 +13,20 @@ class thread (threading.Thread):
 		self.name = name
 
 	def run(self):
-		#print "Starting " + self.name
 		listenAndSend(self.threadID,self.name)
-		print "Exiting " + self.name
 
 def listenAndSend(threadID,threadName):
-
+	#Variables compartidas definidas en el hilo principal.
 	global sockListenClient
 	global sockSendServer
 	global connection
 	global serverSocketClosed
 	global mode
 	global prob
+	global desireToDelete
+	packetCounter = 0 #Contador de paquetes secuencial, en caso de que el usuario haya seleccionado eliminar alguno.
 
-	if threadID == 1:
+	if threadID == 1: #Hilo encargado de escuchar al cliente y enviar al servidor.
 		while True:
 			# Esperando conexion
 			print 'Esperando para conectarse'
@@ -40,14 +40,19 @@ def listenAndSend(threadID,threadName):
 					data = connection.recv(3)
 					print 'Recibido "%s"' % data
 					if data:
+						packetCounter += 1
 						try:
-							if np.random.choice(np.arange(0,2), p=[prob,1-prob]):
-								print 'Enviando mensaje al servidor'
-								sockSendServer.sendall(data)
+							if (len(desireToDelete) > 0) and (packetCounter in desireToDelete):
+								if mode == "d":
+									print "Paquete \"perdido\""
 							else:
-								print "Paquete \"perdido\""
+								if np.random.choice(np.arange(0,2), p=[prob,1-prob]):
+									print 'Enviando mensaje al servidor'
+									sockSendServer.sendall(data)
+								else:
+									if mode == "d":
+										print "Paquete \"perdido\""
 						finally:
-							#print "Esperando respuesta del servidor"
 							pass
 					else:
 						print 'No hay mas datos', client_address
@@ -60,7 +65,7 @@ def listenAndSend(threadID,threadName):
 				break
 		
 		
-	elif threadID == 2:
+	elif threadID == 2: #Hilo encargado de escuchar al servidor y enviar al cliente.
 		sockSendServer.settimeout(1.0)
 		while not serverSocketClosed:
 			while True:
@@ -79,6 +84,14 @@ if len(sys.argv) > 4:
 	serverAddress = int(sys.argv[2])
 	prob = float(sys.argv[3])
 	mode = sys.argv[4]
+	desireToDelete = [] #Vector que contiene todos los paquetes que el usuario desea eliminar.
+
+	if mode == "d":
+		answer = raw_input("Desea eliminar paquetes? [y/n] : ")# Pregunta si desea eliminar paquetes.
+		if answer == "y": #En caso de querer hacerlo se le pide que indique los números de paquete separados por "," y que sean válidos.
+			ans = raw_input("Indique los paquetes a eliminar de la forma x,y,z\nDeben ser números válidos entre 1 y tamaño del archivo: ")
+			for num in ans.split(","): #Separa los números ingresados y los guarda en el vector.
+				desireToDelete.append(int(num))
 
 	# Creando el socket TCP/IP
 	sockListenClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
