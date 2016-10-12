@@ -57,46 +57,7 @@ print >>sys.stderr, 'Modo seleccionado: %s' % mode
 # Pide el tiempo de time-out en ms
 time_out = input("Cuanto tiempo desea el Time-Out del ACK: ")
 print >>sys.stderr, 'Tiempo del Time-Out configurado a %i ms' % time_out
-time_out = time_out * 0.1
-
-####################################################
-#		ELIMINAR
-####################################################
-
-# Enviar datos del cliente hacia el servidor
-# line = file_Open.readline()
-# act_Id = 0
-# while line != "":
-# 	# enviar caracter por caracter.
-# 	leng = len(line)
-# 	for i in xrange(leng):
-# 		sec_Packet = sec_Packet + 1
-# 		packet = (sec_Packet, line[i])
-# 		if mode == "debug":
-# 			if line[i] == " ":
-# 				vecWindow.append(packet)
-# 				vecTimer.append(time_out)
-# 				vecId.append(act_Id)
-# 				act_Id += 1
-# 				print "[debug] #%s:_%s" % packet
-# 				print "[debug] esperando en ventana el paquete: #%s:_%s"  % vecWindow[-1]
-# 			else:
-# 				if ord(line[i]) != 10:
-# 					vecWindow.append(packet)
-# 					vecTimer.append(time_out)
-# 					vecId.append(act_Id)
-# 					act_Id += 1
-# 					print "[debug] %s:%s" % packet
-# 					print "[debug] esperando en ventana el paquete: #%s:%s" % vecWindow[-1]
-# 		if act_Id == iDs
-# 			act_Id = 0
-# 	line = file_Open.readline()
-# print "Archivo enviado."
-# file_Open.close()
-
-####################################################
-#		ELIMINAR
-####################################################
+time_out = time_out * 0.001
  
 # Conecta el socket en el puerto cuando el servidor esté escuchando
 server_address = ('localhost', intermediate_port)
@@ -145,57 +106,59 @@ try:
 			pos = vecId.index(ack_Id)
 			vecId[pos] = -1
 
-		while vecId[0] == -1 and 0 < leng:
-			vecWindow.pop(0)
-			vecTimer.pop(0)
-			vecId.pop(0)
-
-			act_Ch = len(line) - leng
-
-			packet = str(act_Id)
-			packet += ":"
-			packet += line[act_Ch]
-
-			vecWindow.append(packet)
-			vecTimer.append(t)
-			vecId.append(act_Id)
-			act_Id += 1
-			leng -= 1
-
-			if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
-				act_Id = 0
-
-			if mode == "debug":
-				print "[debug] enviando el paquete: #%s" % vecWindow[-1]
-			
-			sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
-			t_a = time.time()
-			t = t_a + time_out			
-			vecTimer.append(t)
-
-			if mode == "debug":
-				ventana = "ventana: |"
-				for i in xrange(len(vecWindow)):
-					ventana += vecWindow[i]
-					ventana += "|"
-				print "[debug] %s" % ventana
-
-		t_a = time.time()
-		for act in xrange(len(vecWindow)):
-			if t_a <= vecTimer[act]:
-				if mode == "debug":
-					print "[debug] Reenviando el paquete: #%s" % vecWindow[act]
-				sock.sendall(vecWindow[act])
-				t_a = time.time()
-				t = t_a + time_out
-				vecTimer.append(t)
-				break
-
 		if leng == 0:
 			line = file_Open.readline()
 			leng = len(line)
 
-		if line == "" and not vecWindow:
+		if not vecId:
+			while vecId[0] == -1:
+				vecWindow.pop(0)
+				vecTimer.pop(0)
+				vecId.pop(0)
+
+				if 0 < leng:
+					act_Ch = len(line) - leng
+
+					packet = str(act_Id)
+					packet += ":"
+					packet += line[act_Ch]
+
+					vecWindow.append(packet)
+					vecTimer.append(t)
+					vecId.append(act_Id)
+					act_Id += 1
+					leng -= 1
+
+					if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
+						act_Id = 0
+
+					if mode == "debug":
+						print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+					
+					sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
+					t_a = time.time()
+					t = t_a + time_out			
+					vecTimer.append(t)
+
+				if mode == "debug":
+					ventana = "ventana: |"
+					for i in xrange(len(vecWindow)):
+						ventana += vecWindow[i]
+						ventana += "|"
+					print "[debug] %s" % ventana
+
+		t_a = time.time()
+		for act in xrange(len(vecWindow)):
+			if t_a >= vecTimer[act]:
+				if mode == "debug":
+					print "[debug] Reenviando el paquete: #%s" % vecWindow[act]
+				sock.sendall(vecWindow[act])
+				t_b = time.time()
+				t = t_b + time_out
+				vecTimer[act] = t
+				break
+
+		if not vecWindow:
 			finish = True
 
 finally:

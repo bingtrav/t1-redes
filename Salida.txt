@@ -1,2 +1,2 @@
-Hola a todos
-como estan?
+Este mensaje va dirigido a pruebas
+revisar si se envian todos los datos.
