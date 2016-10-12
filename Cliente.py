@@ -70,7 +70,7 @@ line = file_Open.readline()
 act_Id = 0
 leng = len(line)
 try:
-
+	sock.settimeout(0.1)
 	# Llena la ventana inicial
 	for i in xrange(windowSR):
 		packet = str(act_Id)
@@ -95,57 +95,64 @@ try:
  	finish = False
 
 	while not finish:
-		data = sock.recv(5)
-		ack = data.split(':')[0]
-		ack_Id = int(ack)
+		noMsn = False
+		while not noMsn:
+			print "enter"
+			try:
+				print "enter enter"
+				data = sock.recv(5)
+				ack = data.split(':')[0]
+				ack_Id = int(ack)
 
-		if mode == "debug":
-			print >>sys.stderr, '[debug] ACK %s recibido' % ack_Id
+				if mode == "debug":
+					print >>sys.stderr, '[debug] ACK %s recibido' % ack_Id
 
-		if ack_Id in vecId:
-			pos = vecId.index(ack_Id)
-			vecId[pos] = -1
+				if ack_Id in vecId:
+					pos = vecId.index(ack_Id)
+					vecId[pos] = -1
+			except:
+				print "enter no enter"
+				noMsn = True
 
 		if leng == 0:
 			line = file_Open.readline()
 			leng = len(line)
 
-		if not vecId:
-			while vecId[0] == -1:
-				vecWindow.pop(0)
-				vecTimer.pop(0)
-				vecId.pop(0)
+		while vecId and vecId[0] == -1:
+			vecWindow.pop(0)
+			vecTimer.pop(0)
+			vecId.pop(0)
 
-				if 0 < leng:
-					act_Ch = len(line) - leng
+			if 0 < leng:
+				act_Ch = len(line) - leng
 
-					packet = str(act_Id)
-					packet += ":"
-					packet += line[act_Ch]
+				packet = str(act_Id)
+				packet += ":"
+				packet += line[act_Ch]
 
-					vecWindow.append(packet)
-					vecTimer.append(t)
-					vecId.append(act_Id)
-					act_Id += 1
-					leng -= 1
+				vecWindow.append(packet)
+				vecTimer.append(t)
+				vecId.append(act_Id)
+				act_Id += 1
+				leng -= 1
 
-					if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
-						act_Id = 0
-
-					if mode == "debug":
-						print "[debug] enviando el paquete: #%s" % vecWindow[-1]
-					
-					sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
-					t_a = time.time()
-					t = t_a + time_out			
-					vecTimer.append(t)
+				if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
+					act_Id = 0
 
 				if mode == "debug":
-					ventana = "ventana: |"
-					for i in xrange(len(vecWindow)):
-						ventana += vecWindow[i]
-						ventana += "|"
-					print "[debug] %s" % ventana
+					print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+				
+				sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
+				t_a = time.time()
+				t = t_a + time_out			
+				vecTimer.append(t)
+
+			if mode == "debug":
+				ventana = "ventana: |"
+				for i in xrange(len(vecWindow)):
+					ventana += vecWindow[i]
+					ventana += "|"
+				print "[debug] %s" % ventana
 
 		t_a = time.time()
 		for act in xrange(len(vecWindow)):
@@ -156,7 +163,6 @@ try:
 				t_b = time.time()
 				t = t_b + time_out
 				vecTimer[act] = t
-				break
 
 		if not vecWindow:
 			finish = True
