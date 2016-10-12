@@ -15,7 +15,7 @@ class thread (threading.Thread):
 	def run(self):
 		#print "Starting " + self.name
 		listenAndSend(self.threadID,self.name)
-		#print "Exiting " + self.name
+		print "Exiting " + self.name
 
 def listenAndSend(threadID,threadName):
 
@@ -85,7 +85,7 @@ if len(sys.argv) > 4:
 	sockSendServer = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 	# Enlace de socket y puerto
-	intermediario_address = ('localhost', 10001)
+	intermediario_address = ('localhost', clientAddress)
 	print 'Empezando a levantar %s puerto %s' % intermediario_address
 	sockListenClient.bind(intermediario_address)
 
