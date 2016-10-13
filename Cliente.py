@@ -26,8 +26,8 @@ vecTimer = []		# Vector del timer de cada paquete (unico)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Solicitud del tamaño de la ventana de paso de Selective Repeat
-windowSR = input("Tamaño deseado de la ventana de paso: ")
-iDs = windowSR * 2 - 1 #AGREGUÉ EL -1 PORQUE LOS ID VAN DE 0 a TAMAÑO VENTANA -1
+windowSR = int(input("Tamaño deseado de la ventana de paso: "))
+iDs = windowSR * 2 - 1
 
 # Solicitud y carga de archivo a enviar
 is_File = False
@@ -88,7 +88,6 @@ try:
 
 		if mode == "debug":
 			print "[debug] enviando el paquete: #%s" % vecWindow[-1]
-
 		sock.sendall(vecWindow[-1])
 		t_a = time.time()
 		t = t_a + time_out
@@ -102,9 +101,7 @@ try:
 		# Revisa todos los ACKs recibidos.
 		noMsn = False
 		while not noMsn:
-			print "enter"
 			try:
-				print "enter enter"
 				data = sock.recv(5)
 				ack = data.split(':')[0]
 				ack_Id = int(ack)
@@ -116,7 +113,6 @@ try:
 					pos = vecId.index(ack_Id)
 					vecId[pos] = -1
 			except:
-				print "enter no enter"
 				noMsn = True
 
 		# Si ya no hay más en la linea, saca la siguiente.
@@ -143,13 +139,12 @@ try:
 				act_Id += 1
 				leng -= 1
 
-				if act_Id > iDs: #ESTO LO REVISA CADA VEZ QUE AUMENTA. SE PONE CERO CUANDO ES MAYOR QUE IDs NADA MÁS.
+				if act_Id > iDs:
 					act_Id = 0
 
 				if mode == "debug":
 					print "[debug] enviando el paquete: #%s" % vecWindow[-1]
-				
-				sock.sendall(vecWindow[-1]) #AGREGUÉ ESTA LÍNEA. NUNCA ESTABA ENVIANDO, POR ESO SE QUEDABA EN LOS PRIMEROS PAQUETES QUE ENVIABA.
+				sock.sendall(vecWindow[-1])
 				t_a = time.time()
 				t = t_a + time_out			
 				vecTimer.append(t)

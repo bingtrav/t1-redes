@@ -6,6 +6,41 @@ import socket
 import sys
 import numpy as np
 
+def checkSeq(window,seqNumber): #Revisa que el número de secuencia dado, se encuentra en la ventana actual.
+	resultado = False	
+	for i in window:
+		if i == int(seqNumber):
+			resultado = True
+			break
+	return resultado
+
+def initWindow(window,windowSize): #Inicializa la ventana
+	for i in range(0,windowSize):
+		window.append(i)
+
+def initFlags(recvFlags,windowSize): #Inicializa el vector de banderas de recibidos.
+	for i in range(0,windowSize*2):
+		recvFlags.append(False)
+
+def moveWindow(index,recvFlags,window,windowSize):
+	while True:	 #En caso de que se haya recibido datos que no eran el primero de la ventana
+		if index < len(recvFlags) and recvFlags[index]:	
+			updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
+			index += 1
+		else:
+			break
+
+#Mueve la ventana un espacio.
+def updateSeq(window,windowSize,recvFlags):
+	for i in range(0,len(window)): #A cada númer de la ventana
+		if window[i] != windowSize*2-1: # Si es distinto al máximo número de secuencia, le aumenta 1.
+			window[i] += 1
+		else: # Sino lo pone en cer, que sería el siguiente número de secuencia.
+			window[i] -= windowSize*2-1
+	recvFlags[window[len(window)-1]] = False #Pone en false, el nuevo número de secuencia metido a la ventana.
+
+
+
 class thread (threading.Thread):
 	def __init__(self, threadID, name):
 		threading.Thread.__init__(self)
@@ -23,8 +58,13 @@ def listenAndSend(threadID,threadName):
 	global serverSocketClosed
 	global mode
 	global prob
-	global desireToDelete
-	packetCounter = 0 #Contador de paquetes secuencial, en caso de que el usuario haya seleccionado eliminar alguno.
+	global answerToDelete
+	global recvFlags
+	global packagesToIgnore
+	global window
+	global windowSize
+	delete = "n" #Indicador si un paquete se debe de eliminar o no
+	packetCounter = -1 #Contador secuencial de paquetes enviados por el Cliente
 
 	if threadID == 1: #Hilo encargado de escuchar al cliente y enviar al servidor.
 		while True:
@@ -37,26 +77,34 @@ def listenAndSend(threadID,threadName):
 				if mode == "d":
 					print 'Conexion desde', client_address
 		 
-				# Recibe los datos en trozos y reetransmite
 				while True:
 					data = connection.recv(3)
 					if mode == "d":
 						print 'Recibido "%s"' % data
 					if data:
-						packetCounter += 1
-						try:
-							if (len(desireToDelete) > 0) and (packetCounter in desireToDelete):
-								#if mode == "d":
-								#	print "Paquete \"perdido\""
-								print "Paquete \"perdido\""
+						if answerToDelete == "s": #En caso de que haya elegido eliminar paquetes manualmente.
+							seqRecv = data.split(":")[0]
+							if checkSeq(window,seqRecv): #Va moviendo la ventana conforme va recibiendo los paquetes, al igual que en el Servidor.
+								recvFlags[int(seqRecv)] = True
+								packetCounter += 1 #Solamente suma el numero de "paquete" por el que va, si es uno nuevo y no una retransmisión.
+								if window[0] == int(seqRecv):
+									moveWindow(int(seqRecv),recvFlags,window,windowSize)
+							if str(packetCounter) in packagesToIgnore: #Pregunta si por el paquete que va, es uno de los que debe de eliminar
+								packagesToIgnore.remove(str(packetCounter))  #Si sí debe eliminarlo, lo borra de la lista de paquetes a eliminar.
+								delete = "s" #E indica que hay que descartar ese paquete.
 							else:
-								if np.random.choice(np.arange(0,2), p=[prob,1-prob]):
-									if mode == "d":
+								delete = "n"#De manera contraria especifica que no hay que descartarlo.
+						try:
+							if delete == "s": #Pregunta si el paquete hay que descartarlo.
+								if mode == "d":
+									print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
+							else: #Si no hay que descartarlo
+								if np.random.choice(np.arange(0,2), p=[prob,1-prob]): #Realiza la probablidad de pérdida, con la proba dada.
+									if mode == "d": 
 										print 'Enviando mensaje al servidor'
 									sockSendServer.sendall(data)
 								else:
-									if mode == "d":
-										print "Paquete \"perdido\""
+									print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
 						finally:
 							pass
 					else:
@@ -76,29 +124,55 @@ def listenAndSend(threadID,threadName):
 		while not serverSocketClosed:
 			while True:
 				try:
-					serverResponse = sockSendServer.recv(5)
+					serverResponse = sockSendServer.recv(5) #Escucha la respuesta del Servidor.
 					if mode == "d":
 						print 'Recibiendo "%s"' % serverResponse
 						print 'Enviando mensaje de vuelta al cliente'
-					connection.sendall(serverResponse)
+					connection.sendall(serverResponse) #La envía al Cliente.
 				finally:
 					break
 		
 
 if len(sys.argv) > 4:
+	
+	try:
+		clientAddress = int(sys.argv[1])
+		serverAddress = int(sys.argv[2])
+		prob = float(sys.argv[3])
+		mode = sys.argv[4]
+		if mode == "n" or mode == "d":
+			pass
+		else:
+			print "Indique el modo de ejecución con n o d únicamente"
+			raise Exception()
+	except Exception:
+		print "Datos inválidos, asegúrese de que esta dando bien los datos como se indica. Ejecute \"python Intermediario.py\" para ver que parametros se ocupan."
+		sys.exit(0)
 
-	clientAddress = int(sys.argv[1])
-	serverAddress = int(sys.argv[2])
-	prob = float(sys.argv[3])
-	mode = sys.argv[4]
-	desireToDelete = [] #Vector que contiene todos los paquetes que el usuario desea eliminar.
+
+	answerToDelete = "n"
+	window = []
+	windowSize = 0
+	packagesToIgnore = []
+	recvFlags = []
 
 	if mode == "d":
-		answer = raw_input("Desea eliminar paquetes? [y/n] : ")# Pregunta si desea eliminar paquetes.
-		if answer == "y": #En caso de querer hacerlo se le pide que indique los números de paquete separados por "," y que sean válidos.
-			ans = raw_input("Indique los paquetes a eliminar de la forma x,y,z\nDeben ser números válidos entre 1 y tamaño del archivo: ")
-			for num in ans.split(","): #Separa los números ingresados y los guarda en el vector.
-				desireToDelete.append(int(num))
+		while True:
+			answerToDelete = raw_input("Desea eliminar paquetes? [s/n] : ")# Pregunta si desea eliminar paquetes manualmente.
+			if answerToDelete == "s" or answerToDelete == "n":
+				break
+			else:
+				print "Respuesta inválida indique s o n"
+		if answerToDelete == "s": 
+			while True:
+				try:
+					windowSize = int(raw_input("Tamaño ventana : "))
+					packagesToIgnore = raw_input("Indique los números de paquete a eliminar de la forma x,y,z (Deben ser números válidos entre 0 y tamaño del archivo): ").split(",")
+					break
+				except Exception:
+					print "Datos inválidos, asegúrese de que esta dando bien los datos."
+	initWindow(window,windowSize)
+	initFlags(recvFlags,windowSize)
 
 	# Creando el socket TCP/IP
 	sockListenClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -130,4 +204,4 @@ if len(sys.argv) > 4:
 	thread1.start()
 	thread2.start()
 else:
-	print "Debe indicar\n1.El puerto donde escucha al cliente\n2.El puerto donde espera el servidor\n3.La probabilidad de pérdidad de paquetes\n4.El modo de ejecución\nEj: python Intermediario.py 10001 10000 0.05 n"
+	print "Debe indicar\n1.El puerto donde escucha al cliente\n2.El puerto donde espera el servidor\n3.La probabilidad de pérdidad de paquetes\n4.El modo de ejecución [d/n]\nEj: python Intermediario.py 10001 10000 0.05 n"
