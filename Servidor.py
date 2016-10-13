@@ -13,48 +13,53 @@ def checkSeq(window,seqNumber):
 			break
 	return resultado
 
+#Mueve la ventana un espacio.
 def updateSeq(window,windowSize,recvFlags):
-	for i in range(0,len(window)):
-		if window[i] != windowSize*2-1:
+	for i in range(0,len(window)): #A cada númer de la ventana
+		if window[i] != windowSize*2-1: # Si es distinto al máximo número de secuencia, le aumenta 1.
 			window[i] += 1
-		else:
+		else: # Sino lo pone en cer, que sería el siguiente número de secuencia.
 			window[i] -= windowSize*2-1
-	recvFlags[window[len(window)-1]] = False
+	recvFlags[window[len(window)-1]] = False #Pone en false, el nuevo número de secuencia metido a la ventana.
 
+#Inicializa la ventana de 0 al máximo número de secuencia.
 def initWindow(window,windowSize):
 	for i in range(0,windowSize):
 		window.append(i)
 
+#Recibe el dato proveniente del Intermediario.
 def recvData(connection):
 	data = connection.recv(3)
 	if modo == "d":
 		print >>sys.stderr, 'recibido "%s"' % data
 	return data
 
-
+#Concatena a la hilera final, todos los caracteres que haya aceptado, antes de que se pudiera mover la ventana. (Mantener orden del mensaje)
 def concatCharacter(completeData,recvCharacter):
-	indexToClean = []
+	indexToClean = [] #Vector con todos los indices de los caracteres que ya se concatenaron a la hilera.
 	for i in range(0,len(recvCharacter)):
 		seqStored = recvCharacter[i].split(":")[0] #Obtiene el número de secuencia.
 		dataStored = recvCharacter[i].split(":")[1] #Obtiene el caracter
-		if not checkSeq(window,int(seqStored)):
+		if not checkSeq(window,int(seqStored)): #Si la secuencia ya no está en la ventana, significa que se pueden copiar de manera ordenada.
 			completeData += dataStored
 			indexToClean.append(i)
 	cleanList(recvCharacter,indexToClean)
 	return completeData
 
+#Limpia la lista de los caracteres que ya fueron concatenados a la hilera final.
 def cleanList(recvCharacter,indexToClean):
 	for index in sorted(indexToClean, reverse=True):
 		del recvCharacter[index]
 	
-
+#Inicializa el vector que va a contener las banderas de recibido, según el número de secuencia.
 def initRecvFlags(recvFlags,windowSize):
 	for i in range(0,windowSize*2):
 		recvFlags.append(False)
 
+#Mueve la ventana todo lo que pueda.
 def moveWindow(index,recvFlags,window,windowSize):
-	while True:	
-		if index < len(recvFlags) and recvFlags[index]:			
+	while True:	 #En caso de que se haya recibido datos que no eran el primero de la ventana
+		if index < len(recvFlags) and recvFlags[index]:	
 			updateSeq(window,windowSize,recvFlags) #Mueve la ventana todo lo que pueda.
 			index += 1
 		else:
@@ -67,15 +72,25 @@ if len(sys.argv) > 3:
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 	#Asignación de argumentos.
-	puertoEscucha = int(sys.argv[1]) #Puerto indicado por el Usuario, en el cual va a escuchar el Servidor.
-	windowSize = int(sys.argv[2]) #Tamaño de la ventana del Servidor.
-	modo = sys.argv[3] #El modo en que desea ejecutar al Servidor.
+	try:
+		puertoEscucha = int(sys.argv[1]) #Puerto indicado por el Usuario, en el cual va a escuchar el Servidor.
+		windowSize = int(sys.argv[2]) #Tamaño de la ventana del Servidor.
+		modo = sys.argv[3] #El modo en que desea ejecutar al Servidor.
+		if modo == "d" or modo == "n":
+ 			pass
+		else:
+			print "Indique el modo de ejecución con n o d únicamente"
+			raise Exception()
+	except Exception:
+		print "Datos inválidos, asegúrese de que esta dando bien los datos como se indica. Ejecute \"python Servidor.py\" para ver que parametros se ocupan."
+		sys.exit(0)
 		
 	window = [] #Ventana con los respectivos números de secuencia.
 	recvCharacter = [] #Vector con los caracteres recibidos, para luego copiarlos en orden.
 	initWindow(window,windowSize) #Inicializa la ventana.
 	recvFlags = [] #Vector de banderas que indican cuales números de secuencia se han recibido.
 	initRecvFlags(recvFlags,windowSize) #Inicializa el vector de banderas.
+	seqMaxLen = len(str(windowSize*2-1))
 
 	# Enlace de socket y puerto
 	server_address = ('localhost', puertoEscucha)
@@ -117,7 +132,8 @@ if len(sys.argv) > 3:
 							completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
 							completeData = concatCharacter(completeData,recvCharacter) #Concatena en orden el resto de caracteres guardados.
 						else:
-							recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
+							if data not in recvCharacter:
+								recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
 					else:
 						if recvFlags[int(seqRecv)]:
 							if modo == "d":
@@ -134,5 +150,6 @@ if len(sys.argv) > 3:
 			connection.close() #Cierra la conexion.
 			break
 	output.write(completeData) #Escribe en el archivo de salida todo el mensaje.
+	print "El archivo ha sido recibido completamente"
 else:
 	print "Debe indicar el puerto de escucha del servidor, el tamaño de la ventana y el modo de ejecución (n o d).\nEj: python Servidor.py 10000 3 n"
