@@ -102,11 +102,9 @@ if len(sys.argv) > 3:
 	
 	#Archivo donde se va a escribir los "paquetes" que le llegan.
 	output = open("Salida.txt","w")
-	pba = open("DEBUG.txt","w")
 
 	#Hilera que va a contener el mensaje de todos los paquetes para luego escribirlo en el archivo de salida.
 	completeData = ""
-	hileraDebug = ""
 
 	while True:
 		# Esperando conexion
@@ -124,7 +122,6 @@ if len(sys.argv) > 3:
 					dataDivided = dataReceived.split("#")
 					del dataDivided[0]
 					for data in dataDivided:
-						hileraDebug += data + "\n" + str(window) + "\n" + completeData + "\n" + str(recvFlags) + "\n" + str(recvCharacter) + "_______________________\n"
 						seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
 						dataRecv = data.split(":")[1] #Obtiene el caracter					
 						if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
@@ -157,7 +154,6 @@ if len(sys.argv) > 3:
 			connection.close() #Cierra la conexion.
 			break
 	output.write(completeData) #Escribe en el archivo de salida todo el mensaje.
-	pba.write(hileraDebug)
 	print "El archivo ha sido recibido completamente"
 else:
 	print "Debe indicar el puerto de escucha del servidor, el tamaño de la ventana y el modo de ejecución (n o d).\nEj: python Servidor.py 10000 3 n"
