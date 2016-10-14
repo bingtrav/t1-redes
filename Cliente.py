@@ -12,6 +12,9 @@ import time
 from datetime import datetime
 
 # Variables de estadistica
+packets = 0
+lostPackets = 0
+noLostPackets = 0
 startTime = time.time()
 startClock = datetime.now().strftime('%H:%M:%S')
 endTime = 0
@@ -28,6 +31,7 @@ sec_Packet = 0		# Secuencia del paquete
 vecId = []			# Vector de IDs de los paquetes enviados
 vecWindow = []		# Vector de los paquetes enviados
 vecTimer = []		# Vector del timer de cada paquete (unico)
+vecReSend = []		# Vector de conocimiento de reenvio
  
 # Creando un socket TCP/IP
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,6 +40,7 @@ if len(sys.argv) < 6:
 	# Solicitud del tamaño de la ventana de paso de Selective Repeat
 	windowSR = int(input("Tamaño deseado de la ventana de paso: "))
 	iDs = windowSR * 2 - 1
+	iDs += 1
 
 	# Solicitud y carga de archivo a enviar
 	is_File = False
@@ -109,13 +114,15 @@ try:
 	sock.settimeout(0.05)			# Se asigna un tiempo de espera de mensajes limitado 
 	# Llena la ventana inicial
 	for i in xrange(windowSR):
+		packets += 1
 		packet = "#"
 		packet += str(act_Id)
 		packet += ":"
 		packet += line[i]
 		
 		vecWindow.append(packet)
-		vecId.append(act_Id)			
+		vecId.append(act_Id)
+		vecReSend.append(False)
 		act_Id += 1
 		leng -= 1
 
@@ -161,12 +168,17 @@ try:
 		# Revisa que la ventana contenga algo y luego si el primer paquete fue recibido para moverla y enviar otro.
 		while vecId and vecId[0] == -1:
 			if not finDoc and 0 < leng:
+				if not vecReSend[0]:
+					noLostPackets += 1
+
 				vecWindow.pop(0)
 				vecTimer.pop(0)
 				vecId.pop(0)
+				vecReSend.pop(0)
 
 				act_Ch = len(line) - leng
 
+				packets += 1
 				packet = "#"
 				packet += str(act_Id)
 				packet += ":"
@@ -175,6 +187,7 @@ try:
 				vecWindow.append(packet)
 				vecTimer.append(t)
 				vecId.append(act_Id)
+				vecReSend.append(False)
 				act_Id += 1
 				leng -= 1
 
@@ -192,6 +205,7 @@ try:
 					vecWindow.pop(0)
 					vecTimer.pop(0)
 					vecId.pop(0)
+					vecReSend.pop(0)
 				break
 
 			# if mode == "debug" and vecId:
@@ -208,6 +222,7 @@ try:
 				if mode == "debug":
 					print "[debug] Reenviando el paquete: %s" % vecWindow[act]
 				sock.sendall(vecWindow[act])
+				vecReSend[act] = True
 				t_b = time.time()
 				t = t_b + time_out
 				vecTimer[act] = t
@@ -217,6 +232,7 @@ try:
 			endTime = time.time()
 			endClock = datetime.now().strftime('%H:%M:%S')
 			totalTime = endTime - startTime
+			lostPackets = packets - noLostPackets
 			finish = True
 
 finally:
@@ -227,3 +243,5 @@ print "ESTADISTICA"
 print "Hora inicio: %s" %startClock
 print "Hora final: %s" %endClock
 print "Duracion: %s" %totalTime
+print "Paquetes no perdidos: %s" %noLostPackets
+print "Paquetes perdidos: %s" %lostPackets
