@@ -39,8 +39,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 if len(sys.argv) < 6:
 	# Solicitud del tamaño de la ventana de paso de Selective Repeat
 	windowSR = int(input("Tamaño deseado de la ventana de paso: "))
-	iDs = windowSR * 2 - 1
-	iDs += 1
+	iDs = windowSR * 2
 
 	# Solicitud y carga de archivo a enviar
 	is_File = False
@@ -84,7 +83,7 @@ if len(sys.argv) < 6:
 else:	
 	print "Ejecución con parametros"
 	windowSR = int(sys.argv[2])
-	iDs = windowSR * 2 - 1
+	iDs = windowSR * 2
 	intermediate_port = int(sys.argv[1])
 	try:
 		server_address = ('localhost', intermediate_port)
