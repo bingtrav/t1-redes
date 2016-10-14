@@ -81,7 +81,7 @@ def listenAndSend(threadID,threadName):
 					dataReceived = connection.recv(1000)
 					if dataReceived:
 						if mode == "d":
-							print 'Recibido "%s"' % data
+							print 'Recibido "%s"' % dataReceived
 						dataDivided = dataReceived.split("#")
 						del dataDivided[0]
 						for data in dataDivided:
