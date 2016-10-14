@@ -16,10 +16,10 @@ def checkSeq(window,seqNumber):
 #Mueve la ventana un espacio.
 def updateSeq(window,windowSize,recvFlags):
 	for i in range(0,len(window)): #A cada númer de la ventana
-		if window[i] != windowSize*2-1: # Si es distinto al máximo número de secuencia, le aumenta 1.
+		if window[i] != windowSize*2: # Si es distinto al máximo número de secuencia, le aumenta 1.
 			window[i] += 1
 		else: # Sino lo pone en cer, que sería el siguiente número de secuencia.
-			window[i] -= windowSize*2-1
+			window[i] -= windowSize*2
 	recvFlags[window[len(window)-1]] = False #Pone en false, el nuevo número de secuencia metido a la ventana.
 
 #Inicializa la ventana de 0 al máximo número de secuencia.
@@ -53,7 +53,7 @@ def cleanList(recvCharacter,indexToClean):
 	
 #Inicializa el vector que va a contener las banderas de recibido, según el número de secuencia.
 def initRecvFlags(recvFlags,windowSize):
-	for i in range(0,windowSize*2):
+	for i in range(0,windowSize*2+1):
 		recvFlags.append(False)
 
 #Mueve la ventana todo lo que pueda.
