@@ -25,49 +25,75 @@ vecTimer = []		# Vector del timer de cada paquete (unico)
 # Creando un socket TCP/IP
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Solicitud del tamaño de la ventana de paso de Selective Repeat
-windowSR = int(input("Tamaño deseado de la ventana de paso: "))
-iDs = windowSR * 2 - 1
+if len(sys.argv) < 6:
+	# Solicitud del tamaño de la ventana de paso de Selective Repeat
+	windowSR = int(input("Tamaño deseado de la ventana de paso: "))
+	iDs = windowSR * 2 - 1
+	print "tamaño maximo de la secuencia de paquetes: %s" % len(str(iDs))	# -> esto nos indica cuantos digitos deben de ir en el paquete.
 
-# Solicitud y carga de archivo a enviar
-is_File = False
-while not is_File:
-	file_Name = raw_input("Ingrese archivo a ser enviado: ")
-	is_File = os.path.isfile(file_Name)
-	if is_File:
-		file_Open = open(file_Name, 'r')
-	else :
-		print "Archivo no encontrado"
+	# Solicitud y carga de archivo a enviar
+	is_File = False
+	while not is_File:
+		file_Name = raw_input("Ingrese archivo a ser enviado: ")
+		is_File = os.path.isfile(file_Name)
+		if is_File:
+			file_Open = open(file_Name, 'r')
+		else :
+			print "Archivo no encontrado"
 
-# Solicitar al usuario cual será el puerto de conexión con el intermediario
-is_Port = False
-while not is_Port:
-	intermediate_port = input("Puerto de conexión con el intermediario: ")
-	# Conecta el socket en el puerto cuando el servidor esté escuchando
+	# Solicitar al usuario cual será el puerto de conexión con el intermediario
+	is_Port = False
+	while not is_Port:
+		intermediate_port = input("Puerto de conexión con el intermediario: ")
+		# Conecta el socket en el puerto cuando el servidor esté escuchando
+		try:
+			server_address = ('localhost', intermediate_port)
+			sock.connect(server_address)
+			print >>sys.stderr, 'Conectando a %s puerto %s' % server_address
+			is_Port = True
+		except:
+			print "Puerto de conexión inválido. Intente de nuevo."
+
+	# Invita al usuario a seleccionar el modo que desee
+	mode = raw_input("Ingrese el modo a ejecutar \n normal o debug: ")
+	if mode == "normal" or mode == "n":
+		mode = "normal"
+	else:
+		if mode == "debug" or mode == "d":
+			mode = "debug"
+		else:
+			print >>sys.stderr, 'Modo auto-asignado'
+			mode = "normal"
+	print >>sys.stderr, 'Modo seleccionado: %s' % mode
+
+	# Pide el tiempo de time-out en ms
+	time_out = input("Cuanto tiempo desea el Time-Out del ACK: ")
+	print >>sys.stderr, 'Tiempo del Time-Out configurado a %i ms' % time_out
+	time_out = time_out * 0.001
+else:	
+	print "Ejecución con parametros"
+	windowSR = int(sys.argv[2])
+	iDs = windowSR * 2 - 1
+	intermediate_port = int(sys.argv[1])
 	try:
 		server_address = ('localhost', intermediate_port)
 		sock.connect(server_address)
 		print >>sys.stderr, 'Conectando a %s puerto %s' % server_address
 		is_Port = True
 	except:
-		print "Puerto de conexión inválido: Intente de nuevo."
-
-# Invita al usuario a seleccionar el modo que desee
-mode = raw_input("Ingrese el modo a ejecutar \n normal o debug: ")
-if mode == "normal" or mode == "n":
-	mode = "normal"
-else:
-	if mode == "debug" or mode == "d":
-		mode = "debug"
+		print "Puerto de conexión inválido."
+		sys.exit(0)
+	is_File = os.path.isfile(sys.argv[3])
+	if is_File:
+		file_Open = open(sys.argv[3], 'r')
 	else:
-		print >>sys.stderr, 'Modo auto-asignado'
-		mode = "normal"
-print >>sys.stderr, 'Modo seleccionado: %s' % mode
-
-# Pide el tiempo de time-out en ms
-time_out = input("Cuanto tiempo desea el Time-Out del ACK: ")
-print >>sys.stderr, 'Tiempo del Time-Out configurado a %i ms' % time_out
-time_out = time_out * 0.001
+		print "Archivo no encontrado"
+		sys.exit(0)
+	mode = sys.argv[4]
+	if mode == "d": mode = "debug"
+	else: mode = "normal"
+	time_out = int(sys.argv[5])
+	time_out = time_out * 0.001
  
 # Enviar datos del cliente hacia el servidor
 line = file_Open.readline()
@@ -77,7 +103,8 @@ try:
 	sock.settimeout(0.1)			# Se asigna un tiempo de espera de mensajes limitado 
 	# Llena la ventana inicial
 	for i in xrange(windowSR):
-		packet = str(act_Id)
+		packet = "#"
+		packet += str(act_Id)
 		packet += ":"
 		packet += line[i]
 		
@@ -87,7 +114,7 @@ try:
 		leng -= 1
 
 		if mode == "debug":
-			print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+			print "[debug] enviando el paquete: %s" % vecWindow[-1]
 		sock.sendall(vecWindow[-1])
 		t_a = time.time()
 		t = t_a + time_out
@@ -102,16 +129,19 @@ try:
 		noMsn = False
 		while not noMsn:
 			try:
-				data = sock.recv(5)
-				ack = data.split(':')[0]
-				ack_Id = int(ack)
+				data = sock.recv(1000)
+				vecAck = data.split('#')
+				vecAck.pop(0)
+				for ac in vecAck:
+					ack = ac.split(':')[0]
+					ack_Id = int(ack)
 
-				if mode == "debug":
-					print >>sys.stderr, '[debug] ACK %s recibido' % ack_Id
+					if mode == "debug":
+						print >>sys.stderr, '[debug] ACK %s recibido' % ack_Id
 
-				if ack_Id in vecId:
-					pos = vecId.index(ack_Id)
-					vecId[pos] = -1
+					if ack_Id in vecId:
+						pos = vecId.index(ack_Id)
+						vecId[pos] = -1
 			except:
 				noMsn = True
 
@@ -129,7 +159,8 @@ try:
 			if 0 < leng:
 				act_Ch = len(line) - leng
 
-				packet = str(act_Id)
+				packet = "#"
+				packet += str(act_Id)
 				packet += ":"
 				packet += line[act_Ch]
 
