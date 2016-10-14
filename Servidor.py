@@ -29,7 +29,7 @@ def initWindow(window,windowSize):
 
 #Recibe el dato proveniente del Intermediario.
 def recvData(connection):
-	data = connection.recv(3)
+	data = connection.recv(1000)
 	if modo == "d":
 		print >>sys.stderr, 'recibido "%s"' % data
 	return data
@@ -118,30 +118,33 @@ if len(sys.argv) > 3:
 	 
 		try:
 			while True:
-				data = recvData(connection)
-				if data:
-					seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
-					dataRecv = data.split(":")[1] #Obtiene el caracter					
-					if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
-						recvFlags[int(seqRecv)] = True #Indica el número de secuencia que fue aceptado.
-						if modo == "d":
-							print "Enviando ACK"+ seqRecv +" de vuelta al cliente"
-						connection.sendall(seqRecv+":ACK") #Envía el ACK correspondiente al paquete recibido.
-						if window[0] == int(seqRecv): #En caso de recibir el primer elemento de la ventana, esta se mueve.
-							moveWindow(int(seqRecv),recvFlags,window,windowSize) #Mueve la ventana todo lo que pueda.
-							completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
-							completeData = concatCharacter(completeData,recvCharacter) #Concatena en orden el resto de caracteres guardados.
-						else:
-							if data not in recvCharacter:
-								recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
-					else:
-						if recvFlags[int(seqRecv)]:
+				dataReceived = recvData(connection)
+				if dataReceived:
+					dataDivided = dataReceived.split("#")
+					del dataDivided[0]
+					for data in dataDivided:
+						seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
+						dataRecv = data.split(":")[1] #Obtiene el caracter					
+						if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
+							recvFlags[int(seqRecv)] = True #Indica el número de secuencia que fue aceptado.
 							if modo == "d":
-								print "Reenviando ACK"+ seqRecv +" de vuelta al cliente"
-							connection.sendall(seqRecv+":ACK") #Reenvía el ACK correspondiente al paquete recibido, que ya había sido aceptado.
+								print "Enviando ACK"+ seqRecv +" de vuelta al cliente"
+							connection.sendall("#"+seqRecv+":ACK") #Envía el ACK correspondiente al paquete recibido.
+							if window[0] == int(seqRecv): #En caso de recibir el primer elemento de la ventana, esta se mueve.
+								moveWindow(int(seqRecv),recvFlags,window,windowSize) #Mueve la ventana todo lo que pueda.
+								completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
+								completeData = concatCharacter(completeData,recvCharacter) #Concatena en orden el resto de caracteres guardados.
+							else:
+								if data not in recvCharacter:
+									recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
 						else:
-							if modo == "d":
-								print "%s descartado, número de secuencia inválido" %data
+							if recvFlags[int(seqRecv)]:
+								if modo == "d":
+									print "Reenviando ACK"+ seqRecv +" de vuelta al cliente"
+								connection.sendall("#"+seqRecv+":ACK") #Reenvía el ACK correspondiente al paquete recibido, que ya había sido aceptado.
+							else:
+								if modo == "d":
+									print "%s descartado, número de secuencia inválido" %data
 				else:
 					if modo == "d":
 						print 'no hay mas datos', client_address

@@ -78,35 +78,38 @@ def listenAndSend(threadID,threadName):
 					print 'Conexion desde', client_address
 		 
 				while True:
-					data = connection.recv(3)
-					if mode == "d":
-						print 'Recibido "%s"' % data
-					if data:
-						if answerToDelete == "s": #En caso de que haya elegido eliminar paquetes manualmente.
-							seqRecv = data.split(":")[0]
-							if checkSeq(window,seqRecv): #Va moviendo la ventana conforme va recibiendo los paquetes, al igual que en el Servidor.
-								recvFlags[int(seqRecv)] = True
-								packetCounter += 1 #Solamente suma el numero de "paquete" por el que va, si es uno nuevo y no una retransmisión.
-								if window[0] == int(seqRecv):
-									moveWindow(int(seqRecv),recvFlags,window,windowSize)
-							if str(packetCounter) in packagesToIgnore: #Pregunta si por el paquete que va, es uno de los que debe de eliminar
-								packagesToIgnore.remove(str(packetCounter))  #Si sí debe eliminarlo, lo borra de la lista de paquetes a eliminar.
-								delete = "s" #E indica que hay que descartar ese paquete.
-							else:
-								delete = "n"#De manera contraria especifica que no hay que descartarlo.
-						try:
-							if delete == "s": #Pregunta si el paquete hay que descartarlo.
-								if mode == "d":
-									print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
-							else: #Si no hay que descartarlo
-								if np.random.choice(np.arange(0,2), p=[prob,1-prob]): #Realiza la probablidad de pérdida, con la proba dada.
-									if mode == "d": 
-										print 'Enviando mensaje al servidor'
-									sockSendServer.sendall(data)
+					dataReceived = connection.recv(1000)
+					if dataReceived:
+						if mode == "d":
+							print 'Recibido "%s"' % data
+						dataDivided = dataReceived.split("#")
+						del dataDivided[0]
+						for data in dataDivided:
+							if answerToDelete == "s": #En caso de que haya elegido eliminar paquetes manualmente.
+								seqRecv = data.split(":")[0]
+								if checkSeq(window,seqRecv): #Va moviendo la ventana conforme va recibiendo los paquetes, al igual que en el Servidor.
+									recvFlags[int(seqRecv)] = True
+									packetCounter += 1 #Solamente suma el numero de "paquete" por el que va, si es uno nuevo y no una retransmisión.
+									if window[0] == int(seqRecv):
+										moveWindow(int(seqRecv),recvFlags,window,windowSize)
+								if str(packetCounter) in packagesToIgnore: #Pregunta si por el paquete que va, es uno de los que debe de eliminar
+									packagesToIgnore.remove(str(packetCounter))  #Si sí debe eliminarlo, lo borra de la lista de paquetes a eliminar.
+									delete = "s" #E indica que hay que descartar ese paquete.
 								else:
-									print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
-						finally:
-							pass
+									delete = "n"#De manera contraria especifica que no hay que descartarlo.
+							try:
+								if delete == "s": #Pregunta si el paquete hay que descartarlo.
+									if mode == "d":
+										print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
+								else: #Si no hay que descartarlo
+									if np.random.choice(np.arange(0,2), p=[prob,1-prob]): #Realiza la probablidad de pérdida, con la proba dada.
+										if mode == "d": 
+											print 'Enviando mensaje al servidor'
+										sockSendServer.sendall("#"+data)
+									else:
+										print ('\x1b[0;37;41m'+ "Paquete \"perdido\" (%s)" % data + '\x1b[0m')
+							finally:
+								pass
 					else:
 						if mode == "d":
 							print 'No hay mas datos', client_address
@@ -124,11 +127,11 @@ def listenAndSend(threadID,threadName):
 		while not serverSocketClosed:
 			while True:
 				try:
-					serverResponse = sockSendServer.recv(5) #Escucha la respuesta del Servidor.
+					serverResponses = sockSendServer.recv(1000) #Escucha la respuesta del Servidor.
 					if mode == "d":
-						print 'Recibiendo "%s"' % serverResponse
+						print 'Recibiendo "%s"' % serverResponses
 						print 'Enviando mensaje de vuelta al cliente'
-					connection.sendall(serverResponse) #La envía al Cliente.
+					connection.sendall(serverResponses) #La envía al Cliente.
 				finally:
 					break
 		
