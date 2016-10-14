@@ -9,7 +9,14 @@ import socket
 import sys
 import os.path
 import time
+from datetime import datetime
 
+# Variables de estadistica
+startTime = time.time()
+startClock = datetime.now().strftime('%H:%M:%S')
+endTime = 0
+endClock = 0
+totalTime = 0
 # Variables "Globales"
 windowSR = 3		# Tamaño de la ventana de Selective Repeat
 iDs = 0;			# Cantidad necesaria de IDs unicos
@@ -29,7 +36,6 @@ if len(sys.argv) < 6:
 	# Solicitud del tamaño de la ventana de paso de Selective Repeat
 	windowSR = int(input("Tamaño deseado de la ventana de paso: "))
 	iDs = windowSR * 2 - 1
-	print "tamaño maximo de la secuencia de paquetes: %s" % len(str(iDs))	# -> esto nos indica cuantos digitos deben de ir en el paquete.
 
 	# Solicitud y carga de archivo a enviar
 	is_File = False
@@ -100,7 +106,7 @@ line = file_Open.readline()
 act_Id = 0
 leng = len(line)
 try:
-	sock.settimeout(0.1)			# Se asigna un tiempo de espera de mensajes limitado 
+	sock.settimeout(0.05)			# Se asigna un tiempo de espera de mensajes limitado 
 	# Llena la ventana inicial
 	for i in xrange(windowSR):
 		packet = "#"
@@ -119,7 +125,6 @@ try:
 		t_a = time.time()
 		t = t_a + time_out
 		vecTimer.append(t)
-
  
  	# Inicia el envio de paquetes cuando se mueva la ventana
  	finish = False
@@ -146,17 +151,20 @@ try:
 				noMsn = True
 
 		# Si ya no hay más en la linea, saca la siguiente.
+		finDoc = False			
 		if leng == 0:
 			line = file_Open.readline()
 			leng = len(line)
+			if leng == 0:
+				finDoc = True
 
 		# Revisa que la ventana contenga algo y luego si el primer paquete fue recibido para moverla y enviar otro.
 		while vecId and vecId[0] == -1:
-			vecWindow.pop(0)
-			vecTimer.pop(0)
-			vecId.pop(0)
+			if not finDoc and 0 < leng:
+				vecWindow.pop(0)
+				vecTimer.pop(0)
+				vecId.pop(0)
 
-			if 0 < leng:
 				act_Ch = len(line) - leng
 
 				packet = "#"
@@ -174,25 +182,31 @@ try:
 					act_Id = 0
 
 				if mode == "debug":
-					print "[debug] enviando el paquete: #%s" % vecWindow[-1]
+					print "[debug] enviando el paquete: %s" % vecWindow[-1]
 				sock.sendall(vecWindow[-1])
 				t_a = time.time()
 				t = t_a + time_out			
 				vecTimer.append(t)
+			else:
+				if finDoc:
+					vecWindow.pop(0)
+					vecTimer.pop(0)
+					vecId.pop(0)
+				break
 
-			if mode == "debug":
-				ventana = "ventana: |"
-				for i in xrange(len(vecWindow)):
-					ventana += vecWindow[i]
-					ventana += "|"
-				print "[debug] %s" % ventana
+			# if mode == "debug" and vecId:
+			# 	ventana = "ventana: |"
+			# 	for i in xrange(len(vecWindow)):
+			# 		ventana += vecWindow[i]
+			# 		ventana += "|"
+			# 	print "[debug] %s" % ventana
 
 		# Revisa cada paquete si hay time-out como si se revisaran todos al mismo tiempo.
 		t_a = time.time()
 		for act in xrange(len(vecWindow)):
 			if t_a >= vecTimer[act]:
 				if mode == "debug":
-					print "[debug] Reenviando el paquete: #%s" % vecWindow[act]
+					print "[debug] Reenviando el paquete: %s" % vecWindow[act]
 				sock.sendall(vecWindow[act])
 				t_b = time.time()
 				t = t_b + time_out
@@ -200,8 +214,16 @@ try:
 
 		# Si ya no hay nada en la ventana significa que ya no hay paquetes que enviar ni reenviar.
 		if not vecWindow:
+			endTime = time.time()
+			endClock = datetime.now().strftime('%H:%M:%S')
+			totalTime = endTime - startTime
 			finish = True
 
 finally:
 	print >>sys.stderr, 'Conexion finalizada'
 	sock.close()
+
+print "ESTADISTICA"
+print "Hora inicio: %s" %startClock
+print "Hora final: %s" %endClock
+print "Duracion: %s" %totalTime
