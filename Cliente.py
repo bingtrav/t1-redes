@@ -207,6 +207,7 @@ try:
 					vecReSend.pop(0)
 				break
 
+			# Permite ver la ventana actual
 			# if mode == "debug" and vecId:
 			# 	ventana = "ventana: |"
 			# 	for i in xrange(len(vecWindow)):
@@ -244,3 +245,4 @@ print "Hora final: %s" %endClock
 print "Duracion: %s" %totalTime
 print "Paquetes no perdidos: %s" %noLostPackets
 print "Paquetes perdidos: %s" %lostPackets
+print "Total de paquetes: %s" %packets
