@@ -90,7 +90,6 @@ if len(sys.argv) > 3:
 	initWindow(window,windowSize) #Inicializa la ventana.
 	recvFlags = [] #Vector de banderas que indican cuales números de secuencia se han recibido.
 	initRecvFlags(recvFlags,windowSize) #Inicializa el vector de banderas.
-	seqMaxLen = len(str(windowSize*2-1))
 
 	# Enlace de socket y puerto
 	server_address = ('localhost', puertoEscucha)
@@ -103,9 +102,11 @@ if len(sys.argv) > 3:
 	
 	#Archivo donde se va a escribir los "paquetes" que le llegan.
 	output = open("Salida.txt","w")
+	pba = open("DEBUG.txt","w")
 
 	#Hilera que va a contener el mensaje de todos los paquetes para luego escribirlo en el archivo de salida.
-	completeData = ""	
+	completeData = ""
+	hileraDebug = ""
 
 	while True:
 		# Esperando conexion
@@ -123,6 +124,7 @@ if len(sys.argv) > 3:
 					dataDivided = dataReceived.split("#")
 					del dataDivided[0]
 					for data in dataDivided:
+						hileraDebug += data + "\n" + str(window) + "\n" + completeData + "\n" + str(recvFlags) + "\n" + str(recvCharacter) + "_______________________\n"
 						seqRecv = data.split(":")[0] #Obtiene el número de secuencia.
 						dataRecv = data.split(":")[1] #Obtiene el caracter					
 						if checkSeq(window,seqRecv): #Revisa que el número de secuencia recibido se encuentre en la ventana.
@@ -132,16 +134,18 @@ if len(sys.argv) > 3:
 							connection.sendall("#"+seqRecv+":ACK") #Envía el ACK correspondiente al paquete recibido.
 							if window[0] == int(seqRecv): #En caso de recibir el primer elemento de la ventana, esta se mueve.
 								moveWindow(int(seqRecv),recvFlags,window,windowSize) #Mueve la ventana todo lo que pueda.
-								completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos, si los hay.
+								if not data in recvCharacter:
+									completeData += dataRecv #Concatena el caracter recibido, que va antes que todos los guardados previos.
 								completeData = concatCharacter(completeData,recvCharacter) #Concatena en orden el resto de caracteres guardados.
 							else:
 								if data not in recvCharacter:
 									recvCharacter.append(data) #Guarda el caracter recibido en el orden correspondiente.
+									recvCharacter.sort()
 						else:
 							if recvFlags[int(seqRecv)]:
 								if modo == "d":
 									print "Reenviando ACK"+ seqRecv +" de vuelta al cliente"
-								connection.sendall("#"+seqRecv+":ACK") #Reenvía el ACK correspondiente al paquete recibido, que ya había sido aceptado.
+								connection.sendall("#"+seqRecv+":ACK") #Reenvía el ACK correspondiente al paquete recibido, ya aceptado antes.
 							else:
 								if modo == "d":
 									print "%s descartado, número de secuencia inválido" %data
@@ -153,6 +157,7 @@ if len(sys.argv) > 3:
 			connection.close() #Cierra la conexion.
 			break
 	output.write(completeData) #Escribe en el archivo de salida todo el mensaje.
+	pba.write(hileraDebug)
 	print "El archivo ha sido recibido completamente"
 else:
 	print "Debe indicar el puerto de escucha del servidor, el tamaño de la ventana y el modo de ejecución (n o d).\nEj: python Servidor.py 10000 3 n"
